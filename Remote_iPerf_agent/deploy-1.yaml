@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iperf-app
+  labels:
+    app: iperf-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iperf-app
+  template:
+    metadata:
+      labels:
+        app: iperf-app
+    spec:
+      containers:
+      - name: iperf-app
+        image: p4lik4ri/iperf-app
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        ports:
+        - containerPort: 5000 # Flask REST API (TCP)
+        - containerPort: 5201 # iPerf TCP
+        - containerPort: 5001 # iPerf UDP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iperf-app-service
+  labels:
+    app: iperf-app
+spec:
+  type: NodePort
+  selector:
+    app: iperf-app
+  ports:
+  - name: flask-api
+    protocol: TCP
+    port: 5000
+    targetPort: 5000 # Flask REST API
+    nodePort: 30000 # Single NodePort for Flask API
+  - name: iperf-udp
+    protocol: UDP
+    port: 5001
+    targetPort: 5001 # iPerf UDP
+    nodePort: 30002 # Single NodePort for Flask API
+
+
+
+

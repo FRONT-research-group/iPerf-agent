@@ -1,0 +1,66 @@
+services:
+  iperf-server:
+    image: p4lik4ri/iperf-app:latest
+    container_name: iperf-server
+    ports:
+      - "5000:5000"  # Map server's port 5000 to host port 5000
+    networks:
+      - app-network
+    command: flask run -h 0.0.0.0
+
+  iperf-client:
+    image: p4lik4ri/iperf-app:latest
+    container_name: iperf-client
+    ports:
+      - "6000:5000"  # Map client's port 5000 to host port 6000
+    networks:
+      - app-network
+    command: flask run -h 0.0.0.0
+
+  network-monitor:
+    image: p4lik4ri/network-monitor:latest
+    container_name: network-monitor
+    ports:
+      - "8000:8000"  # Map network monitor's port 8000 to host port 8000
+    networks:
+      - app-network
+    entrypoint: uvicorn main:_app --host 0.0.0.0 --port 8000
+
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports:
+      - "8086:8086"  # Expose the InfluxDB HTTP API
+    volumes:
+      - influxdb-data:/var/lib/influxdb2  # Persist InfluxDB data
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=network-monitor-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=network-monitor-bucket
+      - DOCKER_INFLUXDB_INIT_RETENTION=7d
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=4JQlHZu4-CVuKKwJLt39cz5U1Zj0QxeBn-6yi7fgLWZVT_SF-Cq8dQ4y_7LimM2XgC7PCj9jAIN3wg-n-V8F2g==
+    networks:
+      - app-network
+
+volumes:
+  influxdb-data:
+
+networks:
+  app-network:
+    driver: bridge
+
+
+# example request 
+# curl -X POST "http://localhost:8000/start-experiment" \
+#      -H "Content-Type: application/json" \
+#      -d '{
+#          "server_ip": "iperf-server:5000",
+#          "server_params": "-i 1 -t 10 -u -s",
+#          "client_ip": "iperf-client:5000",
+#          "client_params": "-b 1G -i 1 -t 8 -u -c iperf-server:5000",
+#          "repeat": 1,
+#          "loop_duration": 12
+#      }'
