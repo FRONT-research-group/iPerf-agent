@@ -110,7 +110,7 @@ class iPerf:
             if len(value) != 0:
                 parameters.append(value)
 
-        params = ['mptcpize', cls.executable, *parameters]
+        params = ['mptcpize', 'run', cls.executable, *parameters]
 
         print(f'Final CLI parameters: {params}')
         print(f'Protocol: {protocol}; Parallel: {parallelEnabled} (Count: {parallelCount}); Interval: {interval}')
