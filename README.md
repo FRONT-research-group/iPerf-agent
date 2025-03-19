@@ -16,3 +16,26 @@ curl -X POST -H "Content-Type: application/json" http://<client-ip>:5000/Iperf -
 ```
 curl <server-ip>:5000/LastJsonResult
 ```
+
+### Arguments that can be passed
+
+        "--bandwidth": "-b",
+        "--bind": "-B",
+        "--client": "-c",  # for iPerf Server
+        "--compatibility": "-C",
+        "--dualtest": "-d",
+        "--format": "-f",
+        "--interval": "-i",
+        "--len": "-l",
+        "--listenport": "-L",
+        "--print_mss": "-m",
+        "--mss": "-M",
+        "--num": "-n",
+        "--nodelay": "-N",
+        "--port": "-p",
+        "--tradeoff": "-r",
+        "--tos": "-S",
+        "--time": "-t",
+        "--ttl": "-T",
+        "--udp": "-u",
+        "--window": "-w"
