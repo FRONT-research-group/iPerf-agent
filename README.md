@@ -1,7 +1,7 @@
 # iPerf-agent for mptcp
 
-* docker run -p 5000:5000 -p 5001:5001/tcp -p 5001:5001/udp p4lik4ri/iperf-app:mptcp
-
+* docker run -p --privileged -d 5000:5000 -p 5001:5001/tcp -p 5001:5001/udp p4lik4ri/iperf-app:mptcp
+  NOTE: **--privileged** is necessary to use host kernel's mptcp
 ## Example curl request for server: 
 ```
  curl -X POST -H "Content-Type: application/json" http://<server-ip>:5000/Iperf -d '{ "-i": 1, "-t": "30","-s": ""}'
