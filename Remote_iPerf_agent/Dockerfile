@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
     iputils-ping \
     mptcpize \
+    procps \
     curl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
