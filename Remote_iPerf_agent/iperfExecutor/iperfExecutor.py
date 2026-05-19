@@ -5,6 +5,7 @@ from typing import List, Dict
 from datetime import datetime, timezone
 from threading import Thread
 from iperfExecutor.iperfConfig import iPerfConfig
+from mptcpMonitor import MptcpMonitor
 
 
 class iPerf:
@@ -12,6 +13,7 @@ class iPerf:
     executable: str = None
     rawResult: List[str] = []
     jsonResult: List[Dict] = []
+    mptcpPathResult: List[Dict] = []
     error: List[str] = []
     startTime: datetime = None
     isServer = False
@@ -50,8 +52,12 @@ class iPerf:
         if cls.isRunning:
             raise RuntimeError("iPerf is still running")
 
-        print(f'Last Json Result: {cls.jsonResult}')
-        return cls.jsonResult
+        result = {
+            'intervals':   cls.jsonResult,
+            'mptcp_paths': cls.mptcpPathResult,
+        }
+        print(f'Last Json Result: {result}')
+        return result
 
     @classmethod
     def LastError(cls):
@@ -141,8 +147,23 @@ class iPerf:
         cls.isRunning = True
         cls.rawResult = []
         cls.jsonResult = []
+        cls.mptcpPathResult = []
         cls.error = []
         cls.startTime = datetime.now(timezone.utc)
+
+        # Determine iPerf port for eBPF filter (default 5001 for iperf2)
+        port = 5001
+        if '-p' in params:
+            idx = params.index('-p')
+            if idx + 1 < len(params):
+                try:
+                    port = int(params[idx + 1])
+                except ValueError:
+                    pass
+
+        monitor = MptcpMonitor(port=port)
+        monitor_active = monitor.start()
+
         try:
             process = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             cls.processPID = process.pid
@@ -159,6 +180,9 @@ class iPerf:
         except Exception as e:
             print(f'Error in process: {e}')
         finally:
+            if monitor_active:
+                cls.mptcpPathResult = monitor.stop()
+                print(f'MptcpMonitor: collected {len(cls.mptcpPathResult)} path samples')
             cls.isRunning = False
 
         if not cls.isServer:

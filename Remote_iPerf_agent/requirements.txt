@@ -1,2 +1,5 @@
 Flask>=1.0.3
 PyYAML>=5.1.1
+pyroute2>=0.7.0
+# bcc (BPF Compiler Collection) must be installed via system package manager:
+#   apt install python3-bpfcc bpfcc-tools linux-headers-$(uname -r)
