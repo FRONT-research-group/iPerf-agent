@@ -109,8 +109,9 @@ class MptcpMonitor:
             samples = monitor.stop()
     """
 
-    def __init__(self, port: int = 5001):
+    def __init__(self, port: int = 5001, target: Optional[str] = None):
         self._port = port          # kept for API compatibility, not used
+        self._target = target      # explicit RTT ping target (e.g. iPerf server IP)
         self._ifaces: List[str] = []
         self._monitoring = False
         self._thread: Optional[threading.Thread] = None
@@ -118,7 +119,7 @@ class MptcpMonitor:
         self._prev_snapshot: Dict[str, Dict[str, int]] = {}
         self._prev_ts: float = 0.0
         self._samples: List[Dict] = []
-        self._gateways: Dict[str, Optional[str]] = {}  # cached per-iface gateway
+        self._gateways: Dict[str, Optional[str]] = {}  # fallback per-iface gateway
 
     # -----------------------------------------------------------------------
     # Public API
@@ -205,12 +206,20 @@ class MptcpMonitor:
             self._take_sample(rtt_results)
 
     def _measure_rtt(self, iface: str, out: Dict[str, Optional[float]]) -> None:
-        """Resolve the gateway for *iface*, ping it once, store RTT in *out*."""
-        gw = self._gateways.get(iface)
-        if gw is None:
-            gw = _get_gateway(iface)
-            self._gateways[iface] = gw
-        out[iface] = _ping_rtt_ms(iface, gw) if gw else None
+        """Ping the RTT target through *iface* and store the result in *out*.
+
+        If an explicit target was given (e.g. the iPerf server IP) it is used
+        directly.  Otherwise the per-interface default gateway is resolved and
+        used as a fallback — which only measures the local-hop latency.
+        """
+        target = self._target
+        if target is None:
+            gw = self._gateways.get(iface)
+            if gw is None:
+                gw = _get_gateway(iface)
+                self._gateways[iface] = gw
+            target = gw
+        out[iface] = _ping_rtt_ms(iface, target) if target else None
 
     def _take_sample(self, rtt_ms: Dict[str, Optional[float]]) -> None:
         now = time.monotonic()

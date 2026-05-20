@@ -1,7 +1,7 @@
 import os
 import signal
 import subprocess
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datetime import datetime, timezone
 from threading import Thread
 from iperfExecutor.iperfConfig import iPerfConfig
@@ -181,7 +181,15 @@ class iPerf:
                 except ValueError:
                     pass
 
-        monitor = MptcpMonitor(port=port)
+        # Extract the iPerf server address (-c <host>) so the RTT pings go to
+        # the actual remote endpoint rather than the local gateway.
+        server_ip: Optional[str] = None
+        if '-c' in params:
+            idx = params.index('-c')
+            if idx + 1 < len(params):
+                server_ip = params[idx + 1]
+
+        monitor = MptcpMonitor(port=port, target=server_ip)
         monitor_active = monitor.start()
 
         try:
