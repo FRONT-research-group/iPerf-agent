@@ -74,7 +74,7 @@ class iPerfConfig:
             second = int(float(result.group(2)))
             date = startTime + timedelta(seconds=second)
             jsonResult['timestamp'] = date.timestamp()
-            jsonResult['throughput'] = float(result.group(8))
+            jsonResult['total_throughput'] = float(result.group(8))
 
             udpResult = re.search(udpPattern, line)
 

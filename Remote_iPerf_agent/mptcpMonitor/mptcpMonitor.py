@@ -10,6 +10,8 @@ iPerf test device.
 """
 
 import os
+import re
+import subprocess
 import threading
 import time
 from typing import Dict, List, Optional
@@ -55,6 +57,40 @@ def _read_iface_bytes(iface: str) -> Optional[Dict[str, int]]:
     return None
 
 
+def _get_gateway(iface: str) -> Optional[str]:
+    """Return the default-route gateway reachable via *iface*, or None."""
+    try:
+        out = subprocess.check_output(
+            ["ip", "route", "show", "dev", iface],
+            text=True, timeout=2, stderr=subprocess.DEVNULL,
+        )
+        for line in out.splitlines():
+            m = re.match(r"default\s+via\s+(\S+)", line)
+            if m:
+                return m.group(1)
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return None
+
+
+def _ping_rtt_ms(iface: str, target: str) -> Optional[float]:
+    """
+    Send one ICMP echo through *iface* to *target* and return the RTT in
+    milliseconds, or None on failure / timeout.
+    """
+    try:
+        out = subprocess.check_output(
+            ["ping", "-I", iface, "-c", "1", "-W", "1", target],
+            text=True, timeout=3, stderr=subprocess.DEVNULL,
+        )
+        m = re.search(r"rtt min/avg/max/mdev = [\d.]+/([\d.]+)/", out)
+        if m:
+            return float(m.group(1))
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Monitor class
 # ---------------------------------------------------------------------------
@@ -82,6 +118,7 @@ class MptcpMonitor:
         self._prev_snapshot: Dict[str, Dict[str, int]] = {}
         self._prev_ts: float = 0.0
         self._samples: List[Dict] = []
+        self._gateways: Dict[str, Optional[str]] = {}  # cached per-iface gateway
 
     # -----------------------------------------------------------------------
     # Public API
@@ -98,6 +135,7 @@ class MptcpMonitor:
             return False
 
         self._prev_snapshot = {}
+        self._gateways = {}  # refresh on every start()
         for iface in self._ifaces:
             counters = _read_iface_bytes(iface)
             if counters:
@@ -122,8 +160,8 @@ class MptcpMonitor:
             {
                 "timestamp": <unix float>,
                 "paths": [
-                    {"interface": "eth0",  "tx_mbps": 18.3, "rx_mbps": 0.1},
-                    {"interface": "wwan0", "tx_mbps":  2.4, "rx_mbps": 0.0},
+                    {"interface": "eth0",  "tx_mbps": 18.3, "rx_mbps": 0.1, "rtt_ms": 4.2},
+                    {"interface": "wwan0", "tx_mbps":  2.4, "rx_mbps": 0.0, "rtt_ms": 38.1},
                 ]
             }
         """
@@ -145,10 +183,36 @@ class MptcpMonitor:
 
     def _sample_loop(self) -> None:
         while self._monitoring:
-            time.sleep(1)
-            self._take_sample()
+            # Launch RTT pings concurrently with the 1-second sleep so they
+            # add no extra latency to the sampling interval.
+            rtt_results: Dict[str, Optional[float]] = {}
+            rtt_threads = [
+                threading.Thread(
+                    target=self._measure_rtt,
+                    args=(iface, rtt_results),
+                    daemon=True,
+                )
+                for iface in self._ifaces
+            ]
+            for t in rtt_threads:
+                t.start()
 
-    def _take_sample(self) -> None:
+            time.sleep(1)
+
+            for t in rtt_threads:
+                t.join(timeout=2)
+
+            self._take_sample(rtt_results)
+
+    def _measure_rtt(self, iface: str, out: Dict[str, Optional[float]]) -> None:
+        """Resolve the gateway for *iface*, ping it once, store RTT in *out*."""
+        gw = self._gateways.get(iface)
+        if gw is None:
+            gw = _get_gateway(iface)
+            self._gateways[iface] = gw
+        out[iface] = _ping_rtt_ms(iface, gw) if gw else None
+
+    def _take_sample(self, rtt_ms: Dict[str, Optional[float]]) -> None:
         now = time.monotonic()
         dt  = now - self._prev_ts
         if dt <= 0:
@@ -174,6 +238,7 @@ class MptcpMonitor:
                 "interface": iface,
                 "tx_mbps":   round(delta_tx * 8 / 1e6 / dt, 3),
                 "rx_mbps":   round(delta_rx * 8 / 1e6 / dt, 3),
+                "rtt_ms":    rtt_ms.get(iface),
             })
 
         if sample_paths:

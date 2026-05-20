@@ -66,11 +66,13 @@ class iPerf:
 
                 # Satellite path (eth0) — always added when present
                 if 'eth0' in path_by_iface:
-                    entry['eth0_mbps'] = path_by_iface['eth0']['tx_mbps']
+                    entry['eth0_mbps']    = path_by_iface['eth0']['tx_mbps']
+                    entry['eth0_rtt_ms']  = path_by_iface['eth0'].get('rtt_ms')
 
                 # 5G path (wwan0) — only added when the interface was active
                 if 'wwan0' in path_by_iface:
-                    entry['wwan0_mbps'] = path_by_iface['wwan0']['tx_mbps']
+                    entry['wwan0_mbps']   = path_by_iface['wwan0']['tx_mbps']
+                    entry['wwan0_rtt_ms'] = path_by_iface['wwan0'].get('rtt_ms')
 
             result.append(entry)
 
