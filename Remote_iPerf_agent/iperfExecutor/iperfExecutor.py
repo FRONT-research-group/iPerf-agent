@@ -52,10 +52,28 @@ class iPerf:
         if cls.isRunning:
             raise RuntimeError("iPerf is still running")
 
-        result = {
-            'intervals':   cls.jsonResult,
-            'mptcp_paths': cls.mptcpPathResult,
-        }
+        result = []
+        for interval in cls.jsonResult:
+            entry = dict(interval)
+
+            if cls.mptcpPathResult:
+                # Find the mptcp sample whose timestamp is closest to this interval
+                closest = min(
+                    cls.mptcpPathResult,
+                    key=lambda s: abs(s['timestamp'] - interval['timestamp'])
+                )
+                path_by_iface = {p['interface']: p for p in closest['paths']}
+
+                # Satellite path (eth0) — always added when present
+                if 'eth0' in path_by_iface:
+                    entry['eth0_mbps'] = path_by_iface['eth0']['tx_mbps']
+
+                # 5G path (wwan0) — only added when the interface was active
+                if 'wwan0' in path_by_iface:
+                    entry['wwan0_mbps'] = path_by_iface['wwan0']['tx_mbps']
+
+            result.append(entry)
+
         print(f'Last Json Result: {result}')
         return result
 
