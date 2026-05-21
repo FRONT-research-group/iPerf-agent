@@ -72,10 +72,13 @@ class iPerf:
                     entry['sat_throughput']    = path_by_iface['eth0']['tx_mbps']
                     entry['sat_rtt_ms']  = path_by_iface['eth0'].get('rtt_ms')
 
-                # 5G path (wwan0) — only added when the interface was active
+                # 5G path (wwan0) — always added, 0 when interface was not active
                 if 'wwan0' in path_by_iface:
                     entry['5G_throughput']   = path_by_iface['wwan0']['tx_mbps']
-                    entry['5G_rtt_ms'] = path_by_iface['wwan0'].get('rtt_ms')
+                    entry['5G_rtt_ms'] = path_by_iface['wwan0'].get('rtt_ms', 0)
+                else:
+                    entry['5G_throughput']   = 0
+                    entry['5G_rtt_ms'] = 0
 
             result.append(entry)
 
