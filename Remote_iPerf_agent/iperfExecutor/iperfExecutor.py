@@ -57,22 +57,25 @@ class iPerf:
             entry = dict(interval)
 
             if cls.mptcpPathResult:
-                # Find the mptcp sample whose timestamp is closest to this interval
+                # iPerf timestamps mark the START of each 1-s interval;
+                # MPTCP samples are timestamped at the END of their window.
+                # Adding 1 s aligns them so each interval matches its own sample.
+                match_ts = interval['timestamp'] + 1.0
                 closest = min(
                     cls.mptcpPathResult,
-                    key=lambda s: abs(s['timestamp'] - interval['timestamp'])
+                    key=lambda s: abs(s['timestamp'] - match_ts)
                 )
                 path_by_iface = {p['interface']: p for p in closest['paths']}
 
                 # Satellite path (eth0) — always added when present
                 if 'eth0' in path_by_iface:
-                    entry['eth0_mbps']    = path_by_iface['eth0']['tx_mbps']
-                    entry['eth0_rtt_ms']  = path_by_iface['eth0'].get('rtt_ms')
+                    entry['sat_throughput']    = path_by_iface['eth0']['tx_mbps']
+                    entry['sat_rtt_ms']  = path_by_iface['eth0'].get('rtt_ms')
 
                 # 5G path (wwan0) — only added when the interface was active
                 if 'wwan0' in path_by_iface:
-                    entry['wwan0_mbps']   = path_by_iface['wwan0']['tx_mbps']
-                    entry['wwan0_rtt_ms'] = path_by_iface['wwan0'].get('rtt_ms')
+                    entry['5G_throughput']   = path_by_iface['wwan0']['tx_mbps']
+                    entry['5G_rtt_ms'] = path_by_iface['wwan0'].get('rtt_ms')
 
             result.append(entry)
 
